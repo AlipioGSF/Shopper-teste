@@ -13,6 +13,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.17.1",
     "@types/pg": "^8.11.8",
+    "axios": "^1.7.6",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "guid-typescript": "^1.0.9",

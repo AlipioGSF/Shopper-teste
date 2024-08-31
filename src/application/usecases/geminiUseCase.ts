@@ -1,59 +1,61 @@
 import { GoogleAIFileManager } from "@google/generative-ai/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs";
-import { rejects } from "assert";
+import axios from "axios";
+import FormData from "form-data";
 
-async function base64ToImage(base64String: string, filePath: string) {
+async function base64ToImage(
+  base64String: string,
+  filePath: string
+): Promise<void> {
   const buffer = Buffer.from(base64String, "base64");
+  await fs.promises.writeFile(filePath, buffer);
+  console.log("Imagem salva com sucesso em:", filePath);
+}
 
-  return new Promise<void>((resolve, reject) => {
-    fs.writeFile(filePath, buffer, (err) => {
-      if (err) {
-        console.error("Erro ao salvar a imagem:", err);
-        reject(err);
-      } else {
-        console.log("Imagem salva com sucesso em:", filePath);
-        resolve();
-      }
+async function removeImage(filePath: string): Promise<void> {
+  try {
+    await fs.promises.unlink(filePath);
+    console.log("Imagem excluída com sucesso");
+  } catch (err: any) {
+    if (err.code !== "ENOENT") {
+      console.error("Erro ao excluir imagem:", err);
+      throw err;
+    }
+  }
+}
+
+async function uploadImage(filePath: string): Promise<string> {
+  const form = new FormData();
+  form.append("file", fs.createReadStream(filePath));
+
+  try {
+    const response = await axios.post("https://file.io", form, {
+      headers: {
+        ...form.getHeaders(),
+      },
     });
-  });
+    return response.data.link;
+  } catch (error: any) {
+    throw new Error("Erro ao subir a imagem: " + error.message);
+  }
 }
 
 const geminiRequest = async (imgBase64: string) => {
-  const removeImage = () => {
-    return new Promise<void>((resolve, reject) => {
-      fs.unlink("image.jpg", (err) => {
-        if (err) {
-          console.error("Erro ao excluir imagem");
-          reject(err);
-        } else {
-          console.log("Imagem excluída com sucesso");
-          resolve();
-        }
-      });
-    });
-  };
-  await removeImage();
-
-  await base64ToImage(imgBase64, "image.jpg");
+  const filePath = "image.jpg";
+  await removeImage(filePath);
+  await base64ToImage(imgBase64, filePath);
+  const link = await uploadImage(filePath);
 
   const fileManager = new GoogleAIFileManager(`${process.env.GEMINI_KEY}`);
 
   try {
-    const uploadResponse = await fileManager.uploadFile("image.jpg", {
+    const uploadResponse = await fileManager.uploadFile(filePath, {
       mimeType: "image/jpeg",
       displayName: "Jetpack drawing",
     });
 
-    console.log(
-      `Uploaded file ${uploadResponse.file.displayName} as: ${uploadResponse.file.uri}`
-    );
-
-    const getResponse = await fileManager.getFile(uploadResponse.file.name);
-
-    console.log(
-      `Retrieved file ${getResponse.displayName} as ${getResponse.uri}`
-    );
+    await fileManager.getFile(uploadResponse.file.name);
 
     const genAI = new GoogleGenerativeAI(`${process.env.GEMINI_KEY}`);
 
@@ -74,10 +76,10 @@ const geminiRequest = async (imgBase64: string) => {
     ]);
 
     const value = Number(result.response.text());
-    console.log(`Value extracted: ${value}`);
-    return value;
+    return [value, link];
   } catch (error) {
     console.error("Error occurred:", error);
+    throw error;
   }
 };
 
