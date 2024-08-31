@@ -1,10 +1,9 @@
-require("dotenv").config();
 import { GoogleAIFileManager } from "@google/generative-ai/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs";
-import { Guid } from "guid-typescript";
 
 function base64ToImage(base64String: string, filePath: string) {
+  console.log(`${process.env.GEMINI_KEY}`);
   const buffer = Buffer.from(base64String, "base64");
 
   fs.writeFile(filePath, buffer, (err) => {
@@ -16,57 +15,48 @@ function base64ToImage(base64String: string, filePath: string) {
   });
 }
 
-const geminiTest = async (imgBase64: string) => {
-  let response = undefined;
-
-  fs.unlink("image.jpg", (err) => {
-    if (err) {
-      console.error("Erro ao excluir imagem");
-      return;
-    }
-    console.log("imagem excluída com sucesso");
-  });
+const geminiRequest = async (imgBase64: string) => {
+  const removeImage = () => {
+    return new Promise<void>((resolve, reject) => {
+      fs.unlink("image.jpg", (err) => {
+        if (err) {
+          console.error("Erro ao excluir imagem");
+          reject(err);
+        } else {
+          console.log("Imagem excluída com sucesso");
+          resolve();
+        }
+      });
+    });
+  };
+  await removeImage();
 
   base64ToImage(imgBase64, "image.jpg");
 
-  // Initialize GoogleAIFileManager with your API_KEY.
-  const fileManager = new GoogleAIFileManager(
-    "AIzaSyAJ3JT3r_PSDsEPFUyYIQgWOljtxLduiMI"
-  );
+  const fileManager = new GoogleAIFileManager(`${process.env.GEMINI_KEY}`);
 
-  setTimeout(async () => {
-    // Upload the file and specify a display name.
+  try {
     const uploadResponse = await fileManager.uploadFile("image.jpg", {
       mimeType: "image/jpeg",
       displayName: "Jetpack drawing",
     });
 
-    // View the response.
     console.log(
       `Uploaded file ${uploadResponse.file.displayName} as: ${uploadResponse.file.uri}`
     );
 
-    // Get the previously uploaded file's metadata.
     const getResponse = await fileManager.getFile(uploadResponse.file.name);
 
-    // View the response.
     console.log(
       `Retrieved file ${getResponse.displayName} as ${getResponse.uri}`
     );
 
-    // Initialize GoogleGenerativeAI with your API_KEY.
-    const genAI = new GoogleGenerativeAI(
-      "AIzaSyAJ3JT3r_PSDsEPFUyYIQgWOljtxLduiMI"
-    );
+    const genAI = new GoogleGenerativeAI(`${process.env.GEMINI_KEY}`);
 
     const model = genAI.getGenerativeModel({
-      // Choose a Gemini model.
       model: "gemini-1.5-flash",
     });
 
-    // Upload file ...
-
-    // Generate content using text and the URI reference for the uploaded file.
     const result = await model.generateContent([
       {
         fileData: {
@@ -75,13 +65,16 @@ const geminiTest = async (imgBase64: string) => {
         },
       },
       {
-        text: "Qual o consumo apresentada na imagem? me retorne apenas o valor numérico inteiro",
+        text: "Qual o consumo apresentado na imagem? me retorne apenas o valor numérico inteiro",
       },
     ]);
 
-    console.log(Number(result.response.text()));
-    console.log(result.response.text());
-  }, 50);
+    const value = Number(result.response.text());
+    console.log(`Value extracted: ${value}`);
+    return value;
+  } catch (error) {
+    console.error("Error occurred:", error);
+  }
 };
 
-export { geminiTest };
+export { geminiRequest };

@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { measurement } from "../controllers/readingController";
+import { uploadMeasuaremnt } from "../controllers/readingController";
 
 const router = Router();
 
-router.post("/measurement", measurement);
+router.post("/upload", uploadMeasuaremnt);
 
 export default router;

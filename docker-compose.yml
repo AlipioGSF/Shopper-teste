@@ -1,27 +1,39 @@
 version: '3'
 services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    volumes:
-      - .:/app
-      - /app/node_modules
-    environment:
-      - NODE_ENV=development
-    depends_on:
-      - postgres
-  
-  postgress:
+  postgres:
     container_name: postgres-data
     image: postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: a123
-      POSTGRES_DB: data
+      POSTGRES_DB: shopper
     volumes:
       - ./data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      retries: 3
+      start_period: 1s
+      timeout: 3s
 
-
+  app:
+    build: .
+    image: shopper-app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./src:/app/src
+      - ./dist:/app/dist
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - DATABASE_HOST=postgres-data
+      - DATABASE_PORT=5432
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=a123
+      - DATABASE_NAME=shopper
+    depends_on:
+      postgres:
+        condition: service_healthy

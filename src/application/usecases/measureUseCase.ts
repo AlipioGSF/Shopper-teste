@@ -1,6 +1,13 @@
-import { geminiTest } from "./geminiUseCase";
+import { getDate, setMeasure } from "../../model/measureModel";
+import { geminiRequest } from "./geminiUseCase";
 
-const currentData: MeasureRequest[] = [];
+const measureErrors = {
+  image: (check: boolean) => (check ? "" : "Erro na imagem inserida"),
+  datetime: (check: boolean) => (check ? "" : "Erro na data inserida"),
+  type: (check: boolean) => (check ? "" : "Erro no tipo inserido"),
+  customer_code: (check: boolean) =>
+    check ? "" : "Erro np código do client inserida",
+};
 
 function isValidBase64(base64: string): boolean {
   const base64Regex =
@@ -23,65 +30,27 @@ function isValidCustomerCode(customer_code: string) {
 }
 
 const measureCheckData = (data: MeasureRequest) => {
-  return (
-    isValidBase64(data["image"]) &&
-    isValidDateTime(data["measure_datetime"]) &&
-    isValidCustomerCode(data["customer_code"]) &&
-    isValidMeasureType(data["measure_type"].toUpperCase())
+  const err: string[] = [];
+  err.push(measureErrors["image"](isValidBase64(data["image"])));
+  err.push(
+    measureErrors["datetime"](isValidDateTime(data["measure_datetime"]))
   );
+  err.push(
+    measureErrors["customer_code"](isValidCustomerCode(data["customer_code"]))
+  );
+  err.push(measureErrors["type"](isValidMeasureType(data["measure_type"])));
+
+  const errorMessages = err.filter((msg) => msg != "");
+
+  return errorMessages;
 };
 
-const checkDoubleDate = (date: string) => {
-  let response: boolean = false;
-  currentData?.map((mesuareData) => {
-    const currDate = new Date(date);
-    const measureDate = new Date(mesuareData.measure_datetime);
-    const a = `${currDate.getMonth()}-${currDate.getFullYear()}`;
-    const b = `${measureDate.getMonth()}-${measureDate.getFullYear()}`;
-
-    if (a == b) {
-      response = true;
-      return response;
-    } else {
-      response = false;
-    }
-  });
-  console.log(response);
-  return response;
-};
-
-const geminiAnalysis = (imageBase64: string) => {
-  geminiTest(imageBase64);
-};
-
-const measurementResponse = (data: MeasureRequest) => {
-  if (measureCheckData(data)) {
-    if (checkDoubleDate(data.measure_datetime)) {
-      return [
-        {
-          error_code: "DOUBLE_REPORT",
-          error_description: "Leitura do mês já realizada",
-        },
-        409,
-      ];
-    }
+const addMeasuare = async (data: MeasureRequest) => {
+  const res = await setMeasure(data).then((data) => data);
+  if (res.includes("Leitura")) {
+    return [res, 409];
   }
-
-  const geminiResponse = geminiAnalysis(data.image);
-
-  if (!measureCheckData(data)) {
-    return [
-      {
-        error_code: "INVALID_DATA",
-        error_description:
-          "Os dados fornecidos no corpo da requisição são inválidos",
-      },
-      400,
-    ];
-  }
-
-  currentData.push(data);
-  return ["success", 200];
+  return [res, 200];
 };
 
-export { measurementResponse };
+export { measureCheckData, addMeasuare };

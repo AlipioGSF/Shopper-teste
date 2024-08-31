@@ -1,7 +1,7 @@
 import { Client } from "pg";
 
 const client = new Client({
-  host: "postgres",
+  host: "postgres-data", // Nome do serviço no Docker Compose
   user: "postgres",
   password: "a123",
   database: "shopper",
