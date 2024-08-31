@@ -143,8 +143,6 @@ const listMeasure = async (costumer_code: string, measure_type?: string) => {
       measure_datetime DESC;
     `;
     }
-    console.log(query);
-
     const result = await client.query(query);
     if (result.rows.length === 0) {
       return {
