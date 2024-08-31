@@ -1,17 +1,21 @@
 import { GoogleAIFileManager } from "@google/generative-ai/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs";
+import { rejects } from "assert";
 
-function base64ToImage(base64String: string, filePath: string) {
-  console.log(`${process.env.GEMINI_KEY}`);
+async function base64ToImage(base64String: string, filePath: string) {
   const buffer = Buffer.from(base64String, "base64");
 
-  fs.writeFile(filePath, buffer, (err) => {
-    if (err) {
-      console.error("Erro ao salvar a imagem:", err);
-    } else {
-      console.log("Imagem salva com sucesso em:", filePath);
-    }
+  return new Promise<void>((resolve, reject) => {
+    fs.writeFile(filePath, buffer, (err) => {
+      if (err) {
+        console.error("Erro ao salvar a imagem:", err);
+        reject(err);
+      } else {
+        console.log("Imagem salva com sucesso em:", filePath);
+        resolve();
+      }
+    });
   });
 }
 
@@ -31,7 +35,7 @@ const geminiRequest = async (imgBase64: string) => {
   };
   await removeImage();
 
-  base64ToImage(imgBase64, "image.jpg");
+  await base64ToImage(imgBase64, "image.jpg");
 
   const fileManager = new GoogleAIFileManager(`${process.env.GEMINI_KEY}`);
 
